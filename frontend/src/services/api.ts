@@ -84,6 +84,65 @@ class ApiService {
       body: JSON.stringify(updates),
     });
   }
+
+  // Video upload methods
+  async uploadVideo(
+    projectId: string,
+    file: File,
+    uploaderName: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ video: any }> {
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('uploaderName', uploaderName);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            onProgress(progress);
+          }
+        });
+      }
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response.data);
+          } catch (error) {
+            reject(new Error('Invalid response format'));
+          }
+        } else {
+          try {
+            const errorResponse = JSON.parse(xhr.responseText);
+            reject(new Error(errorResponse.error.message || 'Upload failed'));
+          } catch (error) {
+            reject(new Error('Upload failed'));
+          }
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+
+      xhr.open('POST', `${API_BASE_URL}/videos/projects/${projectId}/upload`);
+      xhr.send(formData);
+    });
+  }
+
+  async getProjectVideos(projectId: string): Promise<{ videos: any[]; count: number }> {
+    return this.request<{ videos: any[]; count: number }>(`/videos/projects/${projectId}/videos`);
+  }
+
+  async getProjectVideosByShareLink(shareLink: string): Promise<{ videos: any[]; count: number }> {
+    return this.request<{ videos: any[]; count: number }>(`/videos/projects/share/${shareLink}/videos`);
+  }
 }
 
 export const apiService = new ApiService();

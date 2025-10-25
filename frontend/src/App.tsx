@@ -1,19 +1,32 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Project } from './types';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { CreateProjectPage } from './pages/CreateProjectPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { ContributorUploadPage } from './pages/ContributorUploadPage';
 
-type AppView = 'list' | 'create' | 'detail';
+type AppView = 'list' | 'create' | 'detail' | 'contribute';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>('list');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [shareLink, setShareLink] = useState<string | null>(null);
   
   // For demo purposes, using a hardcoded owner ID
   // In a real app, this would come from authentication
   const ownerId = 'demo-user';
+
+  // Check URL for share link on app load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareLinkParam = urlParams.get('share');
+    
+    if (shareLinkParam) {
+      setShareLink(shareLinkParam);
+      setCurrentView('contribute');
+    }
+  }, []);
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
@@ -88,6 +101,12 @@ function App() {
           <ProjectDetailPage
             projectId={selectedProject.id}
             onBack={handleBack}
+          />
+        )}
+        
+        {currentView === 'contribute' && shareLink && (
+          <ContributorUploadPage
+            shareLink={shareLink}
           />
         )}
       </main>
