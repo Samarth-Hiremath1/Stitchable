@@ -1,0 +1,1 @@
+export { ProjectOwnershipMiddleware } from './projectOwnership';

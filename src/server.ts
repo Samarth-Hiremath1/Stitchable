@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { runMigrations } from './utils/migrations';
 import { getDatabase } from './utils/database';
+import projectRoutes from './routes/projectRoutes';
 
 const app = express();
 const server = createServer(app);
@@ -24,6 +25,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// API Routes
+app.use('/api/projects', projectRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {
