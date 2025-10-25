@@ -6,6 +6,7 @@ import path from 'path';
 import { runMigrations } from './utils/migrations';
 import { getDatabase } from './utils/database';
 import projectRoutes from './routes/projectRoutes';
+import videoRoutes from './routes/videoRoutes';
 
 const app = express();
 const server = createServer(app);
@@ -16,7 +17,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());
@@ -28,6 +29,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
 app.use('/api/projects', projectRoutes);
+app.use('/api', videoRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {

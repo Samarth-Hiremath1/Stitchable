@@ -135,6 +135,58 @@ export class ProjectOwnershipMiddleware {
     }
   };
 
+  // Middleware to load project by share link (for public access)
+  loadProjectByShareLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shareLink = req.params.shareLink;
+
+      if (!shareLink) {
+        res.status(400).json({
+          error: {
+            code: 'MISSING_SHARE_LINK',
+            message: 'Share link is required',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const project = this.projectRepository.findByShareLink(shareLink);
+
+      if (!project) {
+        res.status(404).json({
+          error: {
+            code: 'PROJECT_NOT_FOUND',
+            message: 'Project not found',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      // Add project to request for use in controllers
+      req.project = project;
+
+      // Check if user is owner (optional for public access)
+      const ownerId = req.headers['x-owner-id'] as string;
+      req.isProjectOwner = ownerId === project.ownerId;
+
+      next();
+    } catch (error) {
+      console.error('Error loading project by share link:', error);
+      res.status(500).json({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to load project',
+          timestamp: new Date(),
+          requestId: req.headers['x-request-id'] || 'unknown'
+        }
+      });
+    }
+  };
+
   // Middleware to validate project access (either owner or valid share link)
   validateProjectAccess = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
