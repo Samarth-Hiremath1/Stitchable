@@ -7,6 +7,9 @@ import { runMigrations } from './utils/migrations';
 import { getDatabase } from './utils/database';
 import projectRoutes from './routes/projectRoutes';
 import videoRoutes from './routes/videoRoutes';
+import processingRoutes from './routes/processingRoutes';
+import { SocketService } from './services/SocketService';
+import { VideoProcessingService } from './services/VideoProcessingService';
 
 const app = express();
 const server = createServer(app);
@@ -30,19 +33,20 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // API Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api', videoRoutes);
+app.use('/api', processingRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Stitchable API is running' });
 });
 
+// Initialize services
+const socketService = new SocketService(io);
+const videoProcessingService = new VideoProcessingService();
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-  
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
+  socketService.handleConnection(socket);
 });
 
 // Initialize database and run migrations
