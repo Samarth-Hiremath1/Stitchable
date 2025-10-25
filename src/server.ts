@@ -3,6 +3,8 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import { runMigrations } from './utils/migrations';
+import { getDatabase } from './utils/database';
 
 const app = express();
 const server = createServer(app);
@@ -36,6 +38,17 @@ io.on('connection', (socket) => {
     console.log('Client disconnected:', socket.id);
   });
 });
+
+// Initialize database and run migrations
+try {
+  console.log('Initializing database...');
+  getDatabase(); // Initialize database connection
+  runMigrations(); // Run any pending migrations
+  console.log('Database initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize database:', error);
+  process.exit(1);
+}
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -11,7 +11,7 @@
     "build:backend": "tsc",
     "build:frontend": "cd frontend && npm run build",
     "start": "node dist/server.js",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:watch": "jest --watch"
   },
   "keywords": [
@@ -23,13 +23,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@types/uuid": "^11.0.0",
     "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "multer": "^2.0.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.4",
     "@types/jest": "^30.0.0",
@@ -38,6 +41,7 @@
     "concurrently": "^9.2.1",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",
+    "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

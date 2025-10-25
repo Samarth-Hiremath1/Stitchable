@@ -9,8 +9,6 @@ export interface Project {
   createdAt: Date;
   updatedAt: Date;
   status: 'active' | 'processing' | 'completed';
-  videos: Video[];
-  finalVideo?: FinalVideo;
 }
 
 export interface Video {
@@ -24,12 +22,12 @@ export interface Video {
   format: string;
   uploadedAt: Date;
   filePath: string;
-  metadata: VideoMetadata;
   qualityScore?: number;
   syncOffset?: number;
 }
 
 export interface VideoMetadata {
+  videoId: string;
   width: number;
   height: number;
   frameRate: number;
@@ -49,7 +47,7 @@ export interface ProcessingJob {
   startedAt?: Date;
   completedAt?: Date;
   error?: string;
-  result?: any;
+  result?: string;
 }
 
 export interface FinalVideo {
@@ -60,4 +58,56 @@ export interface FinalVideo {
   duration: number;
   fileSize: number;
   createdAt: Date;
+}
+
+// Database Row Types (for SQLite storage)
+export interface ProjectRow {
+  id: string;
+  title: string;
+  description: string;
+  event_date: string;
+  share_link: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  status: string;
+}
+
+export interface VideoRow {
+  id: string;
+  project_id: string;
+  filename: string;
+  original_name: string;
+  uploader_name: string;
+  file_size: number;
+  duration: number;
+  format: string;
+  uploaded_at: string;
+  file_path: string;
+  quality_score?: number;
+  sync_offset?: number;
+}
+
+export interface VideoMetadataRow {
+  video_id: string;
+  width: number;
+  height: number;
+  frame_rate: number;
+  bitrate: number;
+  codec: string;
+  audio_channels: number;
+  audio_sample_rate: number;
+  recording_timestamp?: string;
+}
+
+export interface ProcessingJobRow {
+  id: string;
+  project_id: string;
+  type: string;
+  status: string;
+  progress: number;
+  started_at?: string;
+  completed_at?: string;
+  error?: string;
+  result?: string;
 }
