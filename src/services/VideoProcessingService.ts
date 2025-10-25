@@ -4,6 +4,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { randomUUID } from 'crypto';
 import { Video, ProcessingJob } from '../types';
 import { VideoRepository } from '../models/VideoRepository';
+import { SynchronizationService } from './SynchronizationService';
 import { jobQueue } from './JobQueue';
 
 export interface ProcessingOptions {
@@ -23,6 +24,7 @@ export interface ThumbnailOptions {
 
 export class VideoProcessingService {
   private videoRepository = new VideoRepository();
+  private synchronizationService = new SynchronizationService();
 
   constructor() {
     // Register job handlers
@@ -245,7 +247,7 @@ export class VideoProcessingService {
    * Job handler for sync processing
    */
   private async handleSyncJob(job: ProcessingJob): Promise<string> {
-    console.log(`Starting sync job for project: ${job.projectId}`);
+    console.log(`Starting AI synchronization job for project: ${job.projectId}`);
     
     // Get all videos for the project
     const videos = this.videoRepository.findByProjectId(job.projectId);
@@ -256,7 +258,7 @@ export class VideoProcessingService {
 
     jobQueue.updateJobProgress(job.id, 10);
 
-    // Process each video for standardization
+    // First, standardize all videos for consistent processing
     const processedVideos: string[] = [];
     
     for (let i = 0; i < videos.length; i++) {
@@ -282,27 +284,53 @@ export class VideoProcessingService {
         bitrate: '2000k',
         frameRate: 30
       }, (progress) => {
-        const overallProgress = 10 + (i / videos.length) * 60 + (progress / videos.length) * 0.6;
+        const overallProgress = 10 + (i / videos.length) * 30 + (progress / videos.length) * 0.3;
         jobQueue.updateJobProgress(job.id, Math.round(overallProgress));
       });
 
       processedVideos.push(outputPath);
     }
 
-    jobQueue.updateJobProgress(job.id, 80);
+    jobQueue.updateJobProgress(job.id, 50);
 
-    // Generate thumbnails for all videos
-    for (const video of videos) {
-      try {
-        await this.generateVideoThumbnails(video.id);
-      } catch (error) {
-        console.warn(`Failed to generate thumbnails for video ${video.id}:`, error);
+    // Perform AI-powered synchronization
+    try {
+      const syncResult = await this.synchronizationService.synchronizeVideos(job.projectId);
+      
+      jobQueue.updateJobProgress(job.id, 80);
+
+      // Validate synchronization results
+      const validation = this.synchronizationService.validateSyncResults(syncResult);
+      
+      if (!validation.isValid) {
+        console.warn('Synchronization validation issues:', validation.issues);
+        console.warn('Recommendations:', validation.recommendations);
       }
+
+      // Generate thumbnails for all videos
+      for (const video of videos) {
+        try {
+          await this.generateVideoThumbnails(video.id);
+        } catch (error) {
+          console.warn(`Failed to generate thumbnails for video ${video.id}:`, error);
+        }
+      }
+
+      jobQueue.updateJobProgress(job.id, 100);
+
+      const resultMessage = `AI synchronization completed for ${videos.length} videos. ` +
+        `Confidence: ${syncResult.confidence.toFixed(1)}%, Method: ${syncResult.method}`;
+      
+      if (validation.issues.length > 0) {
+        return resultMessage + `. Issues: ${validation.issues.join(', ')}`;
+      }
+      
+      return resultMessage;
+      
+    } catch (error) {
+      console.error('AI synchronization failed:', error);
+      throw new Error(`Synchronization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    jobQueue.updateJobProgress(job.id, 100);
-
-    return `Synchronized ${videos.length} videos and generated thumbnails`;
   }
 
   /**

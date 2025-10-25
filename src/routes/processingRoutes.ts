@@ -25,4 +25,10 @@ router.post('/videos/:videoId/thumbnails', processingController.generateThumbnai
 // Get queue statistics
 router.get('/queue/stats', processingController.getQueueStats);
 
+// Get synchronization results for a project
+router.get('/projects/:projectId/sync-results', processingController.getSyncResults);
+
+// Validate synchronization for a project
+router.get('/projects/:projectId/validate-sync', processingController.validateSync);
+
 export default router;

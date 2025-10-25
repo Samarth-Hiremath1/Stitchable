@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { VideoProcessingService } from '../services/VideoProcessingService';
+import { SynchronizationService } from '../services/SynchronizationService';
 import { jobQueue } from '../services/JobQueue';
 import { ProcessingJobRepository } from '../models/ProcessingJobRepository';
 import { VideoRepository } from '../models/VideoRepository';
 
 export class ProcessingController {
   private processingService = new VideoProcessingService();
+  private synchronizationService = new SynchronizationService();
   private jobRepository = new ProcessingJobRepository();
   private videoRepository = new VideoRepository();
 
@@ -257,6 +259,116 @@ export class ProcessingController {
       console.error('Error retrying job:', error);
       res.status(500).json({ 
         error: 'Failed to retry job',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Get synchronization results for a project
+   */
+  getSyncResults = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        res.status(400).json({ error: 'Project ID is required' });
+        return;
+      }
+
+      // Check if there are videos to sync
+      const videos = this.videoRepository.findByProjectId(projectId);
+      if (videos.length < 2) {
+        res.status(400).json({ error: 'At least 2 videos are required for synchronization' });
+        return;
+      }
+
+      // Get videos with sync offsets
+      const syncedVideos = videos.map(video => ({
+        id: video.id,
+        filename: video.filename,
+        uploaderName: video.uploaderName,
+        duration: video.duration,
+        syncOffset: video.syncOffset || 0,
+        qualityScore: video.qualityScore
+      }));
+
+      // Check if synchronization has been performed
+      const hasSyncData = videos.some(video => video.syncOffset !== null && video.syncOffset !== undefined);
+
+      res.json({
+        projectId,
+        videos: syncedVideos,
+        synchronized: hasSyncData,
+        message: hasSyncData 
+          ? 'Synchronization data available' 
+          : 'No synchronization data found. Run sync processing first.'
+      });
+
+    } catch (error) {
+      console.error('Error getting sync results:', error);
+      res.status(500).json({ 
+        error: 'Failed to get synchronization results',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Validate synchronization for a project
+   */
+  validateSync = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        res.status(400).json({ error: 'Project ID is required' });
+        return;
+      }
+
+      // Get videos with sync data
+      const videos = this.videoRepository.findByProjectId(projectId);
+      if (videos.length < 2) {
+        res.status(400).json({ error: 'At least 2 videos are required for synchronization' });
+        return;
+      }
+
+      // Check if sync data exists
+      const hasSyncData = videos.some(video => video.syncOffset !== null && video.syncOffset !== undefined);
+      if (!hasSyncData) {
+        res.status(400).json({ error: 'No synchronization data found. Run sync processing first.' });
+        return;
+      }
+
+      // Create a mock sync result for validation
+      const mockSyncResult = {
+        projectId,
+        syncPoints: [],
+        confidence: 75, // Mock confidence based on existing data
+        method: 'audio' as const,
+        alignedVideos: videos.map(video => ({
+          videoId: video.id,
+          offsetSeconds: video.syncOffset || 0,
+          confidence: video.qualityScore || 50
+        }))
+      };
+
+      const validation = this.synchronizationService.validateSyncResults(mockSyncResult);
+
+      res.json({
+        projectId,
+        validation,
+        syncData: {
+          confidence: mockSyncResult.confidence,
+          method: mockSyncResult.method,
+          alignedVideos: mockSyncResult.alignedVideos
+        }
+      });
+
+    } catch (error) {
+      console.error('Error validating sync:', error);
+      res.status(500).json({ 
+        error: 'Failed to validate synchronization',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

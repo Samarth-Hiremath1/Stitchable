@@ -60,6 +60,41 @@ export interface FinalVideo {
   createdAt: Date;
 }
 
+// AI Synchronization Types
+export interface SyncPoint {
+  videoId: string;
+  timestamp: number;
+  confidence: number;
+  method: 'audio' | 'visual';
+  referencePoint: number;
+}
+
+export interface AudioWaveform {
+  videoId: string;
+  sampleRate: number;
+  samples: Float32Array;
+  duration: number;
+}
+
+export interface VisualFeature {
+  videoId: string;
+  timestamp: number;
+  features: number[];
+  keypoints: Array<{x: number, y: number}>;
+}
+
+export interface SyncResult {
+  projectId: string;
+  syncPoints: SyncPoint[];
+  confidence: number;
+  method: 'audio' | 'visual' | 'hybrid';
+  alignedVideos: Array<{
+    videoId: string;
+    offsetSeconds: number;
+    confidence: number;
+  }>;
+}
+
 // Database Row Types (for SQLite storage)
 export interface ProjectRow {
   id: string;
