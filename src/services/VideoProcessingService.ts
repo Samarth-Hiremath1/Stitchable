@@ -2,9 +2,10 @@ import path from 'path';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
 import { randomUUID } from 'crypto';
-import { Video, ProcessingJob } from '../types';
+import { Video, ProcessingJob, QualityMetrics } from '../types';
 import { VideoRepository } from '../models/VideoRepository';
 import { SynchronizationService } from './SynchronizationService';
+import { VideoQualityService } from './VideoQualityService';
 import { jobQueue } from './JobQueue';
 
 export interface ProcessingOptions {
@@ -25,6 +26,7 @@ export interface ThumbnailOptions {
 export class VideoProcessingService {
   private videoRepository = new VideoRepository();
   private synchronizationService = new SynchronizationService();
+  private qualityService = new VideoQualityService();
 
   constructor() {
     // Register job handlers
@@ -221,6 +223,65 @@ export class VideoProcessingService {
   }
 
   /**
+   * Start quality analysis for all videos in a project
+   */
+  async startQualityAnalysis(projectId: string): Promise<ProcessingJob> {
+    const videos = this.videoRepository.findByProjectId(projectId);
+    
+    if (videos.length === 0) {
+      throw new Error(`No videos found for project: ${projectId}`);
+    }
+
+    // Add quality analysis job to queue
+    const job = jobQueue.addJob(projectId, 'quality_analysis', 1);
+    
+    console.log(`Started quality analysis job for project ${projectId} with ${videos.length} videos`);
+    
+    return job;
+  }
+
+  /**
+   * Get quality metrics for a specific video
+   */
+  async getVideoQualityMetrics(videoId: string): Promise<QualityMetrics | null> {
+    const video = this.videoRepository.findById(videoId);
+    if (!video) {
+      return null;
+    }
+
+    const videoPath = path.join(process.cwd(), video.filePath);
+    
+    try {
+      return await this.qualityService.assessVideoQuality(videoPath, videoId);
+    } catch (error) {
+      console.error(`Failed to get quality metrics for video ${videoId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get quality rankings for all videos in a project
+   */
+  async getProjectQualityRankings(projectId: string): Promise<Array<{
+    video: Video;
+    qualityScore: number;
+    rank: number;
+  }>> {
+    const videos = this.videoRepository.findByProjectId(projectId);
+    
+    // Filter videos that have quality scores
+    const videosWithScores = videos
+      .filter(video => video.qualityScore !== undefined && video.qualityScore !== null)
+      .sort((a, b) => (b.qualityScore || 0) - (a.qualityScore || 0));
+
+    return videosWithScores.map((video, index) => ({
+      video,
+      qualityScore: video.qualityScore || 0,
+      rank: index + 1
+    }));
+  }
+
+  /**
    * Generate thumbnails for a video
    */
   async generateVideoThumbnails(videoId: string): Promise<string[]> {
@@ -341,24 +402,74 @@ export class VideoProcessingService {
     
     const videos = this.videoRepository.findByProjectId(job.projectId);
     
+    if (videos.length === 0) {
+      throw new Error('No videos found for quality analysis');
+    }
+
     jobQueue.updateJobProgress(job.id, 10);
 
-    // Placeholder for quality analysis logic
-    // In a real implementation, this would analyze video quality metrics
+    const qualityResults: QualityMetrics[] = [];
+
+    // Analyze each video's quality
     for (let i = 0; i < videos.length; i++) {
       const video = videos[i];
+      const videoPath = path.join(process.cwd(), video.filePath);
       
-      // Simulate quality analysis
-      const qualityScore = Math.random() * 100; // Placeholder scoring
-      
-      // Update video with quality score
-      this.videoRepository.update(video.id, { qualityScore });
+      try {
+        console.log(`Analyzing quality for video: ${video.filename}`);
+        
+        // Perform comprehensive quality analysis
+        const qualityMetrics = await this.qualityService.assessVideoQuality(
+          videoPath,
+          video.id,
+          {
+            sampleFrameCount: 20, // Reduced for performance
+            analysisInterval: 3,  // Every 3 seconds
+            enableMotionAnalysis: true,
+            enableLightingAnalysis: true,
+            enableFramingAnalysis: true,
+            enableClarityAnalysis: true
+          }
+        );
+
+        qualityResults.push(qualityMetrics);
+
+        // Update video with overall quality score
+        this.videoRepository.update(video.id, { 
+          qualityScore: qualityMetrics.scores.overall 
+        });
+
+        console.log(`Quality analysis completed for ${video.filename}:`, {
+          overall: qualityMetrics.scores.overall,
+          stability: qualityMetrics.scores.stability,
+          lighting: qualityMetrics.scores.lighting,
+          framing: qualityMetrics.scores.framing,
+          clarity: qualityMetrics.scores.clarity
+        });
+
+      } catch (error) {
+        console.error(`Quality analysis failed for video ${video.filename}:`, error);
+        
+        // Set a default quality score for failed analysis
+        this.videoRepository.update(video.id, { qualityScore: 50 });
+      }
       
       const progress = 10 + ((i + 1) / videos.length) * 90;
       jobQueue.updateJobProgress(job.id, Math.round(progress));
     }
 
-    return `Analyzed quality for ${videos.length} videos`;
+    // Rank videos by quality
+    const rankedVideos = await this.qualityService.rankVideosByQuality(qualityResults);
+    
+    // Log quality ranking results
+    console.log('Video quality ranking:');
+    rankedVideos.forEach((metrics, index) => {
+      const video = videos.find(v => v.id === metrics.videoId);
+      console.log(`${index + 1}. ${video?.filename} - Score: ${metrics.scores.overall}`);
+    });
+
+    return `Quality analysis completed for ${videos.length} videos. ` +
+           `Top video: ${rankedVideos[0]?.scores.overall || 'N/A'} score`;
   }
 
   /**

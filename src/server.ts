@@ -8,6 +8,7 @@ import { getDatabase } from './utils/database';
 import projectRoutes from './routes/projectRoutes';
 import videoRoutes from './routes/videoRoutes';
 import processingRoutes from './routes/processingRoutes';
+import qualityRoutes from './routes/qualityRoutes';
 import { SocketService } from './services/SocketService';
 import { VideoProcessingService } from './services/VideoProcessingService';
 
@@ -34,6 +35,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/projects', projectRoutes);
 app.use('/api', videoRoutes);
 app.use('/api', processingRoutes);
+app.use('/api', qualityRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {

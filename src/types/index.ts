@@ -95,6 +95,87 @@ export interface SyncResult {
   }>;
 }
 
+// Video Quality Assessment Types
+export interface QualityScore {
+  overall: number;
+  stability: number;
+  lighting: number;
+  framing: number;
+  clarity: number;
+  audioQuality: number;
+}
+
+export interface QualityMetrics {
+  videoId: string;
+  scores: QualityScore;
+  analysisTimestamp: Date;
+  frameAnalysis: FrameQualityData[];
+  motionData: MotionAnalysis;
+  lightingData: LightingAnalysis;
+  framingData: FramingAnalysis;
+  clarityData: ClarityAnalysis;
+}
+
+export interface FrameQualityData {
+  timestamp: number;
+  stabilityScore: number;
+  lightingScore: number;
+  framingScore: number;
+  clarityScore: number;
+}
+
+export interface MotionAnalysis {
+  averageMotion: number;
+  motionVariance: number;
+  stabilityScore: number;
+  shakeDetected: boolean;
+  motionVectors: Array<{
+    timestamp: number;
+    magnitude: number;
+    direction: number;
+  }>;
+}
+
+export interface LightingAnalysis {
+  averageBrightness: number;
+  brightnessVariance: number;
+  contrastScore: number;
+  exposureScore: number;
+  colorBalance: {
+    red: number;
+    green: number;
+    blue: number;
+  };
+}
+
+export interface FramingAnalysis {
+  compositionScore: number;
+  ruleOfThirdsScore: number;
+  centeringScore: number;
+  aspectRatioScore: number;
+  subjectDetection: {
+    detected: boolean;
+    confidence: number;
+    boundingBox?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  };
+}
+
+export interface ClarityAnalysis {
+  sharpnessScore: number;
+  focusScore: number;
+  noiseLevel: number;
+  edgeStrength: number;
+  blurDetection: {
+    motionBlur: number;
+    focusBlur: number;
+  };
+}
+
 // Database Row Types (for SQLite storage)
 export interface ProjectRow {
   id: string;
