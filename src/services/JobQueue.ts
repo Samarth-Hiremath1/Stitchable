@@ -88,6 +88,53 @@ export class JobQueue extends EventEmitter {
   }
 
   /**
+   * Retry a failed job
+   */
+  retryJob(jobId: string): ProcessingJob | null {
+    const job = this.jobRepository.findById(jobId);
+    if (!job || job.status !== 'failed') {
+      return null;
+    }
+
+    // Reset job status to pending
+    const retriedJob = this.jobRepository.update(jobId, {
+      status: 'pending',
+      progress: 0,
+      error: undefined,
+      startedAt: undefined,
+      completedAt: undefined
+    });
+
+    if (retriedJob) {
+      this.emit('jobRetried', retriedJob);
+    }
+
+    return retriedJob;
+  }
+
+  /**
+   * Cancel a pending or processing job
+   */
+  cancelJob(jobId: string): ProcessingJob | null {
+    const job = this.jobRepository.findById(jobId);
+    if (!job || (job.status !== 'pending' && job.status !== 'processing')) {
+      return null;
+    }
+
+    const cancelledJob = this.jobRepository.update(jobId, {
+      status: 'failed',
+      error: 'Job cancelled by user',
+      completedAt: new Date()
+    });
+
+    if (cancelledJob) {
+      this.emit('jobCancelled', cancelledJob);
+    }
+
+    return cancelledJob;
+  }
+
+  /**
    * Start the job processing loop
    */
   private startProcessing(): void {

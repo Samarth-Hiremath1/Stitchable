@@ -8,3 +8,7 @@ export { UploadedVideosList } from './UploadedVideosList';
 export { VideoPlayer } from './VideoPlayer';
 export { VideoDownload } from './VideoDownload';
 export { VideoPreview } from './VideoPreview';
+export { ProcessingStatusDisplay } from './ProcessingStatusDisplay';
+export { NotificationSystem } from './NotificationSystem';
+export { ProcessingProgressVisualization } from './ProcessingProgressVisualization';
+export { ProcessingControls } from './ProcessingControls';

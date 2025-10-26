@@ -5,6 +5,7 @@ import { VideoRepository } from '../models/VideoRepository';
 import { VideoMetadataRepository } from '../models/VideoMetadataRepository';
 import { Video, VideoMetadata } from '../types';
 import { randomUUID } from 'crypto';
+import { SecurityUtils } from '../utils/security';
 
 export class VideoService {
   private videoRepository = new VideoRepository();
@@ -107,14 +108,33 @@ export class VideoService {
         throw new Error('Invalid video format. Supported formats: MP4, MOV, AVI, WebM, WMV');
       }
 
-      // Generate unique filename
+      // Validate file signature for additional security
+      const isValidSignature = await SecurityUtils.validateVideoFileSignature(file.path);
+      if (!isValidSignature) {
+        throw new Error('Invalid video file signature. File may be corrupted or not a valid video.');
+      }
+
+      // Generate secure unique filename
       const fileExtension = path.extname(file.originalname);
+      const secureFilename = SecurityUtils.generateSecureFilename(file.originalname);
       const uniqueFilename = `${randomUUID()}${fileExtension}`;
       const filePath = path.join('uploads', 'videos', uniqueFilename);
       const fullPath = path.join(process.cwd(), filePath);
 
+      // Ensure videos directory exists securely
+      const videosDir = path.join(process.cwd(), 'uploads', 'videos');
+      SecurityUtils.ensureSecureDirectory(videosDir);
+
+      // Validate destination path
+      if (!SecurityUtils.validateFilePath(fullPath, videosDir)) {
+        throw new Error('Invalid destination path for video file');
+      }
+
       // Move file to permanent location
       fs.renameSync(file.path, fullPath);
+
+      // Generate file hash for integrity
+      const fileHash = SecurityUtils.generateFileHash(fullPath);
 
       // Extract video duration and metadata
       const [duration, metadata] = await Promise.all([
@@ -122,12 +142,12 @@ export class VideoService {
         this.extractVideoMetadata(fullPath)
       ]);
 
-      // Create video record
+      // Create video record with sanitized uploader name
       const video = this.videoRepository.create({
         projectId,
         filename: uniqueFilename,
-        originalName: file.originalname,
-        uploaderName,
+        originalName: SecurityUtils.sanitizeFilename(file.originalname),
+        uploaderName: SecurityUtils.sanitizeInput(uploaderName),
         fileSize: file.size,
         duration,
         format: fileExtension.substring(1), // Remove the dot
@@ -144,7 +164,11 @@ export class VideoService {
     } catch (error) {
       // Clean up file if it exists
       if (file.path && fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
+        try {
+          fs.unlinkSync(file.path);
+        } catch (cleanupError) {
+          console.error('Error cleaning up temporary file:', cleanupError);
+        }
       }
       throw error;
     }
@@ -191,9 +215,11 @@ export class VideoService {
     if (!video) return false;
 
     try {
-      // Delete physical file
+      // Validate file path before deletion
       const fullPath = path.join(process.cwd(), video.filePath);
-      if (fs.existsSync(fullPath)) {
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      
+      if (SecurityUtils.validateFileAccess(fullPath, uploadsDir)) {
         fs.unlinkSync(fullPath);
       }
 

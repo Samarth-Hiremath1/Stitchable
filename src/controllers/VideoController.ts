@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { VideoService } from '../services/VideoService';
 import { ProjectRepository } from '../models/ProjectRepository';
+import { SecurityUtils } from '../utils/security';
 
 export class VideoController {
   private videoService = new VideoService();
@@ -223,13 +224,14 @@ export class VideoController {
       }
 
       const videoPath = video.filePath;
+      const uploadsDir = path.join(process.cwd(), 'uploads');
 
-      // Check if file exists
-      if (!fs.existsSync(videoPath)) {
+      // Validate file path security
+      if (!SecurityUtils.validateFileAccess(videoPath, uploadsDir)) {
         res.status(404).json({
           error: {
             code: 'VIDEO_FILE_NOT_FOUND',
-            message: 'Video file not found on disk',
+            message: 'Video file not found or access denied',
             timestamp: new Date(),
             requestId: req.headers['x-request-id'] || 'unknown'
           }
@@ -306,13 +308,14 @@ export class VideoController {
       }
 
       const finalVideo = project.finalVideo;
+      const uploadsDir = path.join(process.cwd(), 'uploads');
 
-      // Check if file exists
-      if (!fs.existsSync(finalVideo.filePath)) {
+      // Validate file path security
+      if (!SecurityUtils.validateFileAccess(finalVideo.filePath, uploadsDir)) {
         res.status(404).json({
           error: {
             code: 'FINAL_VIDEO_FILE_NOT_FOUND',
-            message: 'Final video file not found on disk',
+            message: 'Final video file not found or access denied',
             timestamp: new Date(),
             requestId: req.headers['x-request-id'] || 'unknown'
           }

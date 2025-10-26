@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { ProcessingController } from '../controllers/ProcessingController';
+import { SocketService } from '../services/SocketService';
 
-const router = Router();
-const processingController = new ProcessingController();
+export const createProcessingRoutes = (socketService: SocketService) => {
+  const router = Router();
+  const processingController = new ProcessingController(socketService);
 
 // Start processing for a project
 router.post('/projects/:projectId/process', processingController.startProcessing);
@@ -40,4 +42,5 @@ router.get('/projects/:projectId/quality-rankings', processingController.getQual
 // Check if project is ready for stitching
 router.get('/projects/:projectId/stitching-readiness', processingController.checkStitchingReadiness);
 
-export default router;
+  return router;
+};

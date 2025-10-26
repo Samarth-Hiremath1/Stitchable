@@ -4,12 +4,18 @@ import { SynchronizationService } from '../services/SynchronizationService';
 import { jobQueue } from '../services/JobQueue';
 import { ProcessingJobRepository } from '../models/ProcessingJobRepository';
 import { VideoRepository } from '../models/VideoRepository';
+import { SocketService } from '../services/SocketService';
 
 export class ProcessingController {
   private processingService = new VideoProcessingService();
   private synchronizationService = new SynchronizationService();
   private jobRepository = new ProcessingJobRepository();
   private videoRepository = new VideoRepository();
+  private socketService: SocketService;
+
+  constructor(socketService: SocketService) {
+    this.socketService = socketService;
+  }
 
   /**
    * Start video processing for a project
@@ -56,6 +62,13 @@ export class ProcessingController {
 
       // Add job to queue
       const job = jobQueue.addJob(projectId, type as any);
+
+      // Broadcast notification
+      this.socketService.broadcastSystemNotification(
+        projectId,
+        `${type.replace('_', ' ')} processing started`,
+        'info'
+      );
 
       res.status(201).json({
         message: 'Processing job started',
@@ -157,6 +170,15 @@ export class ProcessingController {
       // Mark job as failed with cancellation message
       const cancelledJob = this.jobRepository.markAsFailed(jobId, 'Job cancelled by user');
 
+      // Broadcast notification
+      if (cancelledJob) {
+        this.socketService.broadcastSystemNotification(
+          cancelledJob.projectId,
+          `${cancelledJob.type.replace('_', ' ')} job cancelled`,
+          'warning'
+        );
+      }
+
       res.json({
         message: 'Job cancelled successfully',
         job: cancelledJob
@@ -248,6 +270,13 @@ export class ProcessingController {
 
       // Create a new job with the same parameters
       const newJob = jobQueue.addJob(job.projectId, job.type);
+
+      // Broadcast notification
+      this.socketService.broadcastSystemNotification(
+        job.projectId,
+        `${job.type.replace('_', ' ')} job retried`,
+        'info'
+      );
 
       res.json({
         message: 'Job retry initiated',

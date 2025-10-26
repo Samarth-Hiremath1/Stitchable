@@ -4,6 +4,10 @@ import { ShareLinkDisplay } from './ShareLinkDisplay';
 import { VideoList } from './VideoList';
 import { ProjectSettings } from './ProjectSettings';
 import { VideoPreview } from './VideoPreview';
+import { ProcessingStatusDisplay } from './ProcessingStatusDisplay';
+import { ProcessingProgressVisualization } from './ProcessingProgressVisualization';
+import { ProcessingControls } from './ProcessingControls';
+import { useProcessingUpdates } from '../hooks/useProcessingUpdates';
 
 interface ProjectDashboardProps {
   project: Project;
@@ -12,7 +16,7 @@ interface ProjectDashboardProps {
   isLoading?: boolean;
 }
 
-type TabType = 'overview' | 'videos' | 'preview' | 'settings';
+type TabType = 'overview' | 'videos' | 'preview' | 'processing' | 'settings';
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   project,
@@ -21,6 +25,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   isLoading = false
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [processingState, processingActions] = useProcessingUpdates(project.id);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -49,6 +54,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     { id: 'overview', label: 'Overview', count: null },
     { id: 'videos', label: 'Videos', count: project.videos?.length || 0 },
     { id: 'preview', label: 'Preview', count: null },
+    { id: 'processing', label: 'Processing', count: processingState.activeJobs.length },
     { id: 'settings', label: 'Settings', count: null }
   ];
 
@@ -112,7 +118,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           <div className="space-y-6">
             <ShareLinkDisplay shareLink={project.shareLink} />
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Videos Uploaded</h3>
                 <p className="text-3xl font-bold text-blue-600">{project.videos?.length || 0}</p>
@@ -126,16 +132,30 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               </div>
               
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Project Status</h3>
-                <p className={`text-lg font-semibold ${
-                  project.status === 'active' ? 'text-green-600' :
-                  project.status === 'processing' ? 'text-yellow-600' :
-                  'text-blue-600'
-                }`}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                </p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Active Jobs</h3>
+                <p className="text-3xl font-bold text-yellow-600">{processingState.activeJobs.length}</p>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Connection</h3>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${processingState.isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                  <p className={`text-lg font-semibold ${processingState.isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                    {processingState.isConnected ? 'Connected' : 'Disconnected'}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Processing Status Summary */}
+            {processingState.activeJobs.length > 0 && (
+              <ProcessingStatusDisplay
+                processingState={processingState}
+                processingActions={processingActions}
+                showQueueStats={false}
+                compact={true}
+              />
+            )}
 
             {project.finalVideo && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -177,6 +197,39 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </svg>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Videos Available</h3>
                 <p className="text-gray-500">Upload some videos to see the preview.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'processing' && (
+          <div className="space-y-6">
+            <ProcessingControls
+              projectId={project.id}
+              videoCount={project.videos?.length || 0}
+              onProcessingStarted={(type, job) => {
+                console.log(`Processing started: ${type}`, job);
+                onRefresh(); // Refresh project data
+              }}
+            />
+            
+            <ProcessingStatusDisplay
+              processingState={processingState}
+              processingActions={processingActions}
+              showQueueStats={true}
+              compact={false}
+            />
+            
+            {processingState.jobs.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Processing Progress</h3>
+                <ProcessingProgressVisualization
+                  jobs={processingState.jobs}
+                  showDetails={true}
+                  orientation="horizontal"
+                  onRetryJob={processingActions.retryFailedJob}
+                  onCancelJob={processingActions.cancelJob}
+                />
               </div>
             )}
           </div>

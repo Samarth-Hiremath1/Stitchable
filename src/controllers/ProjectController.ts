@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ProjectRepository } from '../models/ProjectRepository';
+import { SecurityMiddleware } from '../middleware/security';
 import { randomUUID } from 'crypto';
 
 export class ProjectController {
@@ -323,6 +324,87 @@ export class ProjectController {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to update project',
+          timestamp: new Date(),
+          requestId: req.headers['x-request-id'] || 'unknown'
+        }
+      });
+    }
+  };
+
+  // Generate access token for project owner
+  generateAccessToken = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { ownerId } = req.body;
+
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_PROJECT_ID',
+            message: 'Project ID is required',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      if (!ownerId || typeof ownerId !== 'string') {
+        res.status(400).json({
+          error: {
+            code: 'MISSING_OWNER_ID',
+            message: 'Owner ID is required',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const project = this.projectRepository.findById(id);
+
+      if (!project) {
+        res.status(404).json({
+          error: {
+            code: 'PROJECT_NOT_FOUND',
+            message: 'Project not found',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      if (project.ownerId !== ownerId) {
+        res.status(403).json({
+          error: {
+            code: 'ACCESS_DENIED',
+            message: 'You do not have permission to generate tokens for this project',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const accessToken = SecurityMiddleware.generateAccessToken(project.id, project.ownerId);
+      const shareToken = SecurityMiddleware.generateShareLinkToken(project.id, project.shareLink);
+
+      res.json({
+        success: true,
+        data: {
+          accessToken,
+          shareToken,
+          expiresIn: '7 days',
+          shareTokenExpiresIn: '30 days'
+        }
+      });
+    } catch (error) {
+      console.error('Error generating access token:', error);
+      res.status(500).json({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to generate access token',
           timestamp: new Date(),
           requestId: req.headers['x-request-id'] || 'unknown'
         }

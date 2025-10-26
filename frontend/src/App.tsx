@@ -5,6 +5,8 @@ import { ProjectListPage } from './pages/ProjectListPage';
 import { CreateProjectPage } from './pages/CreateProjectPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { ContributorUploadPage } from './pages/ContributorUploadPage';
+import { NotificationSystem } from './components/NotificationSystem';
+import { useProcessingUpdates } from './hooks/useProcessingUpdates';
 
 type AppView = 'list' | 'create' | 'detail' | 'contribute';
 
@@ -16,6 +18,9 @@ function App() {
   // For demo purposes, using a hardcoded owner ID
   // In a real app, this would come from authentication
   const ownerId = 'demo-user';
+
+  // Global processing updates for notifications
+  const [globalProcessingState, globalProcessingActions] = useProcessingUpdates();
 
   // Check URL for share link on app load
   useEffect(() => {
@@ -110,6 +115,15 @@ function App() {
           />
         )}
       </main>
+
+      {/* Global Notification System */}
+      <NotificationSystem
+        notifications={globalProcessingState.notifications}
+        onDismiss={globalProcessingActions.dismissNotification}
+        onClearAll={globalProcessingActions.clearNotifications}
+        maxVisible={5}
+        autoHideDuration={5000}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { VideoController } from '../controllers/VideoController';
 import { ProjectOwnershipMiddleware } from '../middleware/projectOwnership';
+import { SecurityMiddleware } from '../middleware/security';
 
 const router = Router();
 const videoController = new VideoController();
@@ -46,35 +47,43 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   }
 };
 
-// Configure upload middleware
+// Configure upload middleware with enhanced security
 const upload = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: 500 * 1024 * 1024, // 500MB limit
-    files: 1 // Only one file at a time
+    files: 1, // Only one file at a time
+    fieldSize: 1024 * 1024, // 1MB field size limit
+    fieldNameSize: 100, // 100 bytes field name limit
+    fields: 10 // Maximum 10 fields
   }
 });
 
 // Video upload routes
 
-// Upload video to project (public access via share link)
+// Upload video to project (public access via share link) - with rate limiting
 router.post(
   '/projects/:projectId/upload',
+  SecurityMiddleware.uploadRateLimit, // Apply upload rate limiting
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateVideoUpload),
   ownershipMiddleware.loadProject, // Load project to verify it exists
   upload.single('video'),
+  SecurityMiddleware.validateFileUpload,
   videoController.uploadVideo
 );
 
 // Get video by ID (requires project ownership or share link access)
 router.get(
   '/videos/:videoId',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateUUIDParam('videoId')),
   videoController.getVideo
 );
 
 // Get all videos for a project (requires ownership)
 router.get(
   '/projects/:projectId/videos',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateUUIDParam('projectId')),
   ownershipMiddleware.validateProjectOwnership,
   videoController.getProjectVideos
 );
@@ -82,6 +91,7 @@ router.get(
 // Get all videos for a project via share link (public access)
 router.get(
   '/projects/share/:shareLink/videos',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateShareLink),
   ownershipMiddleware.loadProjectByShareLink,
   videoController.getProjectVideos
 );
@@ -89,19 +99,24 @@ router.get(
 // Stream video with range request support
 router.get(
   '/videos/:videoId/stream',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateUUIDParam('videoId')),
+  SecurityMiddleware.secureFileHeaders,
   videoController.streamVideo
 );
 
 // Download final video
 router.get(
   '/projects/:projectId/final-video/download',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateUUIDParam('projectId')),
   ownershipMiddleware.validateProjectOwnership,
+  SecurityMiddleware.secureFileHeaders,
   videoController.downloadFinalVideo
 );
 
 // Delete video (requires project ownership)
 router.delete(
   '/videos/:videoId',
+  SecurityMiddleware.validateInput(SecurityMiddleware.validateUUIDParam('videoId')),
   // Note: We'll need to add middleware to check if user owns the project that contains this video
   videoController.deleteVideo
 );

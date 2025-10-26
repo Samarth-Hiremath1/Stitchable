@@ -41,6 +41,14 @@ export class SocketService {
         status: job.status
       });
     });
+
+    jobQueue.on('jobRetried', (job: ProcessingJob) => {
+      this.broadcastToProject(job.projectId, 'jobRetried', job);
+    });
+
+    jobQueue.on('jobCancelled', (job: ProcessingJob) => {
+      this.broadcastToProject(job.projectId, 'jobCancelled', job);
+    });
   }
 
   /**
@@ -88,6 +96,36 @@ export class SocketService {
       const job = jobQueue.getJob(jobId);
       socket.emit('jobStatus', job);
     });
+
+    // Retry failed job
+    socket.on('retryJob', (jobId: string) => {
+      const retriedJob = jobQueue.retryJob(jobId);
+      if (retriedJob) {
+        socket.emit('jobRetried', retriedJob);
+        this.broadcastSystemNotification(
+          retriedJob.projectId,
+          `Job ${retriedJob.type} has been retried`,
+          'info'
+        );
+      } else {
+        socket.emit('retryJobFailed', { jobId, error: 'Job cannot be retried' });
+      }
+    });
+
+    // Cancel job
+    socket.on('cancelJob', (jobId: string) => {
+      const cancelledJob = jobQueue.cancelJob(jobId);
+      if (cancelledJob) {
+        socket.emit('jobCancelled', cancelledJob);
+        this.broadcastSystemNotification(
+          cancelledJob.projectId,
+          `Job ${cancelledJob.type} has been cancelled`,
+          'warning'
+        );
+      } else {
+        socket.emit('cancelJobFailed', { jobId, error: 'Job cannot be cancelled' });
+      }
+    });
   }
 
   /**
@@ -131,6 +169,36 @@ export class SocketService {
     this.broadcastToProject(projectId, 'systemNotification', {
       message,
       type,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Broadcast error with retry option
+   */
+  broadcastErrorWithRetry(
+    projectId: string,
+    error: string,
+    jobId?: string,
+    retryable: boolean = true
+  ): void {
+    this.broadcastToProject(projectId, 'processingError', {
+      error,
+      jobId,
+      retryable,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Broadcast connection status
+   */
+  broadcastConnectionStatus(
+    projectId: string,
+    status: 'connected' | 'disconnected' | 'reconnecting'
+  ): void {
+    this.broadcastToProject(projectId, 'connectionStatus', {
+      status,
       timestamp: new Date().toISOString()
     });
   }

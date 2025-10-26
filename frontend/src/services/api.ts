@@ -163,6 +163,60 @@ class ApiService {
     
     return response.blob();
   }
+
+  // Processing methods
+  async startProcessing(projectId: string, type: 'sync' | 'quality_analysis' | 'stitching'): Promise<{ job: any }> {
+    return this.request<{ job: any }>(`/projects/${projectId}/process`, {
+      method: 'POST',
+      body: JSON.stringify({ type }),
+    });
+  }
+
+  async getProcessingStatus(projectId: string): Promise<{ projectJobs: any[]; queueStats: any }> {
+    return this.request<{ projectJobs: any[]; queueStats: any }>(`/projects/${projectId}/processing-status`);
+  }
+
+  async getJobStatus(jobId: string): Promise<{ job: any }> {
+    return this.request<{ job: any }>(`/jobs/${jobId}`);
+  }
+
+  async cancelJob(jobId: string): Promise<{ job: any }> {
+    return this.request<{ job: any }>(`/jobs/${jobId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async retryJob(jobId: string): Promise<{ originalJob: any; newJob: any }> {
+    return this.request<{ originalJob: any; newJob: any }>(`/jobs/${jobId}/retry`, {
+      method: 'POST',
+    });
+  }
+
+  async getQueueStats(): Promise<{ stats: any }> {
+    return this.request<{ stats: any }>('/queue/stats');
+  }
+
+  async getSyncResults(projectId: string): Promise<{ videos: any[]; synchronized: boolean }> {
+    return this.request<{ videos: any[]; synchronized: boolean }>(`/projects/${projectId}/sync-results`);
+  }
+
+  async validateSync(projectId: string): Promise<{ validation: any; syncData: any }> {
+    return this.request<{ validation: any; syncData: any }>(`/projects/${projectId}/validate-sync`);
+  }
+
+  async startStitching(projectId: string): Promise<{ job: any }> {
+    return this.request<{ job: any }>(`/projects/${projectId}/stitch`, {
+      method: 'POST',
+    });
+  }
+
+  async getQualityRankings(projectId: string): Promise<{ rankings: any[]; summary: any }> {
+    return this.request<{ rankings: any[]; summary: any }>(`/projects/${projectId}/quality-rankings`);
+  }
+
+  async checkStitchingReadiness(projectId: string): Promise<{ ready: boolean; requirements: any; recommendations: string[] }> {
+    return this.request<{ ready: boolean; requirements: any; recommendations: string[] }>(`/projects/${projectId}/stitching-readiness`);
+  }
 }
 
 export const apiService = new ApiService();
