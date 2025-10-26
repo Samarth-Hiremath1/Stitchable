@@ -5,3 +5,6 @@ export { VideoList } from './VideoList';
 export { ProjectSettings } from './ProjectSettings';
 export { VideoUpload } from './VideoUpload';
 export { UploadedVideosList } from './UploadedVideosList';
+export { VideoPlayer } from './VideoPlayer';
+export { VideoDownload } from './VideoDownload';
+export { VideoPreview } from './VideoPreview';

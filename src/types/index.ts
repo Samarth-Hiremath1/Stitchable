@@ -9,6 +9,7 @@ export interface Project {
   createdAt: Date;
   updatedAt: Date;
   status: 'active' | 'processing' | 'completed';
+  finalVideo?: FinalVideo;
 }
 
 export interface Video {

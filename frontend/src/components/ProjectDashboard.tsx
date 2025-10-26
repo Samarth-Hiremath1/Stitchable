@@ -3,6 +3,7 @@ import { Project } from '../types';
 import { ShareLinkDisplay } from './ShareLinkDisplay';
 import { VideoList } from './VideoList';
 import { ProjectSettings } from './ProjectSettings';
+import { VideoPreview } from './VideoPreview';
 
 interface ProjectDashboardProps {
   project: Project;
@@ -11,7 +12,7 @@ interface ProjectDashboardProps {
   isLoading?: boolean;
 }
 
-type TabType = 'overview' | 'videos' | 'settings';
+type TabType = 'overview' | 'videos' | 'preview' | 'settings';
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   project,
@@ -47,6 +48,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   const tabs = [
     { id: 'overview', label: 'Overview', count: null },
     { id: 'videos', label: 'Videos', count: project.videos?.length || 0 },
+    { id: 'preview', label: 'Preview', count: null },
     { id: 'settings', label: 'Settings', count: null }
   ];
 
@@ -139,9 +141,14 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="text-lg font-medium text-blue-900 mb-2">Final Video Ready</h3>
                 <p className="text-blue-700 mb-3">Your stitched video has been generated and is ready for download.</p>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  Download Final Video
-                </button>
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => setActiveTab('preview')}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Preview & Download
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -149,6 +156,30 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
         {activeTab === 'videos' && (
           <VideoList videos={project.videos || []} />
+        )}
+
+        {activeTab === 'preview' && (
+          <div>
+            {project.finalVideo ? (
+              <VideoPreview 
+                finalVideo={project.finalVideo}
+                title="Final Stitched Video"
+              />
+            ) : project.videos && project.videos.length > 0 ? (
+              <VideoPreview 
+                video={project.videos[0]}
+                title="Video Preview"
+              />
+            ) : (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Videos Available</h3>
+                <p className="text-gray-500">Upload some videos to see the preview.</p>
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'settings' && (

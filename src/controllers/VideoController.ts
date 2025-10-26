@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { VideoService } from '../services/VideoService';
 import { ProjectRepository } from '../models/ProjectRepository';
 
@@ -192,6 +194,166 @@ export class VideoController {
         error: {
           code: 'GET_PROJECT_VIDEOS_FAILED',
           message: 'Failed to retrieve project videos',
+          timestamp: new Date(),
+          requestId: req.headers['x-request-id'] || 'unknown'
+        }
+      });
+    }
+  };
+
+  /**
+   * Stream video with range request support
+   */
+  streamVideo = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { videoId } = req.params;
+      const range = req.headers.range;
+
+      const video = await this.videoService.getVideoWithMetadata(videoId);
+      if (!video) {
+        res.status(404).json({
+          error: {
+            code: 'VIDEO_NOT_FOUND',
+            message: 'Video not found',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const videoPath = video.filePath;
+
+      // Check if file exists
+      if (!fs.existsSync(videoPath)) {
+        res.status(404).json({
+          error: {
+            code: 'VIDEO_FILE_NOT_FOUND',
+            message: 'Video file not found on disk',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const stat = fs.statSync(videoPath);
+      const fileSize = stat.size;
+
+      if (range) {
+        // Parse range header
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+
+        // Create read stream for the requested range
+        const file = fs.createReadStream(videoPath, { start, end });
+
+        // Set appropriate headers for partial content
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+          'Cache-Control': 'public, max-age=3600'
+        });
+
+        file.pipe(res);
+      } else {
+        // No range requested, send entire file
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': 'video/mp4',
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=3600'
+        });
+
+        fs.createReadStream(videoPath).pipe(res);
+      }
+
+    } catch (error: any) {
+      console.error('Stream video error:', error);
+      res.status(500).json({
+        error: {
+          code: 'STREAM_VIDEO_FAILED',
+          message: 'Failed to stream video',
+          timestamp: new Date(),
+          requestId: req.headers['x-request-id'] || 'unknown'
+        }
+      });
+    }
+  };
+
+  /**
+   * Download final video
+   */
+  downloadFinalVideo = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      const project = await this.projectRepository.findById(projectId);
+      if (!project || !project.finalVideo) {
+        res.status(404).json({
+          error: {
+            code: 'FINAL_VIDEO_NOT_FOUND',
+            message: 'Final video not found for this project',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const finalVideo = project.finalVideo;
+
+      // Check if file exists
+      if (!fs.existsSync(finalVideo.filePath)) {
+        res.status(404).json({
+          error: {
+            code: 'FINAL_VIDEO_FILE_NOT_FOUND',
+            message: 'Final video file not found on disk',
+            timestamp: new Date(),
+            requestId: req.headers['x-request-id'] || 'unknown'
+          }
+        });
+        return;
+      }
+
+      const stat = fs.statSync(finalVideo.filePath);
+      const fileSize = stat.size;
+
+      // Set headers for download
+      res.setHeader('Content-Disposition', `attachment; filename="${finalVideo.filename}"`);
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Length', fileSize);
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // Handle range requests for download progress
+      const range = req.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Content-Length': chunksize,
+        });
+
+        fs.createReadStream(finalVideo.filePath, { start, end }).pipe(res);
+      } else {
+        res.writeHead(200);
+        fs.createReadStream(finalVideo.filePath).pipe(res);
+      }
+
+    } catch (error: any) {
+      console.error('Download final video error:', error);
+      res.status(500).json({
+        error: {
+          code: 'DOWNLOAD_FINAL_VIDEO_FAILED',
+          message: 'Failed to download final video',
           timestamp: new Date(),
           requestId: req.headers['x-request-id'] || 'unknown'
         }

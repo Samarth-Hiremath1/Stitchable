@@ -86,6 +86,19 @@ router.get(
   videoController.getProjectVideos
 );
 
+// Stream video with range request support
+router.get(
+  '/videos/:videoId/stream',
+  videoController.streamVideo
+);
+
+// Download final video
+router.get(
+  '/projects/:projectId/final-video/download',
+  ownershipMiddleware.validateProjectOwnership,
+  videoController.downloadFinalVideo
+);
+
 // Delete video (requires project ownership)
 router.delete(
   '/videos/:videoId',

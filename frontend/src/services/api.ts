@@ -143,6 +143,26 @@ class ApiService {
   async getProjectVideosByShareLink(shareLink: string): Promise<{ videos: any[]; count: number }> {
     return this.request<{ videos: any[]; count: number }>(`/videos/projects/share/${shareLink}/videos`);
   }
+
+  // Video streaming and download methods
+  getVideoStreamUrl(videoId: string): string {
+    return `${API_BASE_URL}/videos/${videoId}/stream`;
+  }
+
+  getFinalVideoDownloadUrl(projectId: string): string {
+    return `${API_BASE_URL}/projects/${projectId}/final-video/download`;
+  }
+
+  async downloadFinalVideo(projectId: string): Promise<Blob> {
+    const url = this.getFinalVideoDownloadUrl(projectId);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error('Failed to download video');
+    }
+    
+    return response.blob();
+  }
 }
 
 export const apiService = new ApiService();
