@@ -31,4 +31,13 @@ router.get('/projects/:projectId/sync-results', processingController.getSyncResu
 // Validate synchronization for a project
 router.get('/projects/:projectId/validate-sync', processingController.validateSync);
 
+// Start intelligent video stitching for a project
+router.post('/projects/:projectId/stitch', processingController.startStitching);
+
+// Get quality rankings for a project
+router.get('/projects/:projectId/quality-rankings', processingController.getQualityRankings);
+
+// Check if project is ready for stitching
+router.get('/projects/:projectId/stitching-readiness', processingController.checkStitchingReadiness);
+
 export default router;

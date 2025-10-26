@@ -6,6 +6,7 @@ import { Video, ProcessingJob, QualityMetrics } from '../types';
 import { VideoRepository } from '../models/VideoRepository';
 import { SynchronizationService } from './SynchronizationService';
 import { VideoQualityService } from './VideoQualityService';
+import { VideoStitchingService } from './VideoStitchingService';
 import { jobQueue } from './JobQueue';
 
 export interface ProcessingOptions {
@@ -27,6 +28,7 @@ export class VideoProcessingService {
   private videoRepository = new VideoRepository();
   private synchronizationService = new SynchronizationService();
   private qualityService = new VideoQualityService();
+  private stitchingService = new VideoStitchingService();
 
   constructor() {
     // Register job handlers
@@ -282,6 +284,42 @@ export class VideoProcessingService {
   }
 
   /**
+   * Start intelligent video stitching for a project
+   */
+  async startVideoStitching(projectId: string): Promise<ProcessingJob> {
+    const videos = this.videoRepository.findByProjectId(projectId);
+    
+    if (videos.length === 0) {
+      throw new Error(`No videos found for project: ${projectId}`);
+    }
+
+    // Check if videos are synchronized
+    const synchronizedVideos = videos.filter(video => 
+      video.syncOffset !== undefined && video.syncOffset !== null
+    );
+
+    if (synchronizedVideos.length === 0 && videos.length > 1) {
+      throw new Error('Videos must be synchronized before stitching. Please run synchronization first.');
+    }
+
+    // Check if videos have quality scores
+    const videosWithQuality = videos.filter(video => 
+      video.qualityScore !== undefined && video.qualityScore !== null
+    );
+
+    if (videosWithQuality.length === 0) {
+      throw new Error('Videos must have quality analysis before stitching. Please run quality analysis first.');
+    }
+
+    // Add stitching job to queue
+    const job = jobQueue.addJob(projectId, 'stitching', 1);
+    
+    console.log(`Started intelligent video stitching job for project ${projectId} with ${videos.length} videos`);
+    
+    return job;
+  }
+
+  /**
    * Generate thumbnails for a video
    */
   async generateVideoThumbnails(videoId: string): Promise<string[]> {
@@ -476,7 +514,7 @@ export class VideoProcessingService {
    * Job handler for video stitching
    */
   private async handleStitchingJob(job: ProcessingJob): Promise<string> {
-    console.log(`Starting stitching job for project: ${job.projectId}`);
+    console.log(`Starting intelligent video stitching job for project: ${job.projectId}`);
     
     const videos = this.videoRepository.findByProjectId(job.projectId);
     
@@ -486,26 +524,36 @@ export class VideoProcessingService {
 
     jobQueue.updateJobProgress(job.id, 10);
 
-    // Placeholder for stitching logic
-    // In a real implementation, this would stitch videos together
-    const outputPath = path.join(
-      process.cwd(),
-      'uploads',
-      'processed',
-      `stitched_${job.projectId}_${Date.now()}.mp4`
-    );
+    try {
+      // Use the intelligent video stitching service
+      const stitchingResult = await this.stitchingService.stitchVideos(job.projectId, {
+        transitionDuration: 0.5,
+        minSegmentDuration: 2.0,
+        maxSegmentDuration: 10.0,
+        enableSmartTransitions: true,
+        enableCameraAngleSwitching: true,
+        outputFormat: 'mp4',
+        outputResolution: '1920x1080',
+        outputBitrate: '4000k'
+      });
 
-    // For now, just copy the first video as a placeholder
-    const firstVideo = videos[0];
-    const inputPath = path.join(process.cwd(), firstVideo.filePath);
-    
-    await this.convertVideo(inputPath, outputPath, {
-      outputFormat: 'mp4'
-    }, (progress) => {
-      const overallProgress = 10 + progress * 0.9;
-      jobQueue.updateJobProgress(job.id, Math.round(overallProgress));
-    });
+      jobQueue.updateJobProgress(job.id, 100);
 
-    return `Stitched video saved to: ${path.relative(process.cwd(), outputPath)}`;
+      const resultMessage = `Intelligent video stitching completed successfully!\n` +
+        `Output: ${stitchingResult.outputPath}\n` +
+        `Duration: ${Math.round(stitchingResult.duration)}s\n` +
+        `File Size: ${Math.round(stitchingResult.fileSize / 1024 / 1024)}MB\n` +
+        `Average Quality: ${stitchingResult.qualityMetrics.averageQuality}%\n` +
+        `Transitions: ${stitchingResult.qualityMetrics.transitionCount}\n` +
+        `Camera Switches: ${stitchingResult.qualityMetrics.cameraAngleSwitches}\n` +
+        `Segments: ${stitchingResult.timeline.segments.length}`;
+
+      console.log('Stitching completed:', resultMessage);
+      return resultMessage;
+
+    } catch (error) {
+      console.error('Intelligent video stitching failed:', error);
+      throw new Error(`Video stitching failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

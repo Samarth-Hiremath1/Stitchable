@@ -2,5 +2,6 @@ export { VideoService } from './VideoService';
 export { VideoProcessingService } from './VideoProcessingService';
 export { SynchronizationService } from './SynchronizationService';
 export { VideoQualityService } from './VideoQualityService';
+export { VideoStitchingService } from './VideoStitchingService';
 export { SocketService } from './SocketService';
 export { JobQueue, jobQueue } from './JobQueue';

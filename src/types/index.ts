@@ -227,3 +227,46 @@ export interface ProcessingJobRow {
   error?: string;
   result?: string;
 }
+
+// Video Stitching Types
+export interface StitchingSegment {
+  videoId: string;
+  startTime: number;
+  endTime: number;
+  qualityScore: number;
+  transitionType: 'cut' | 'fade' | 'crossfade';
+  cameraAngle: 'wide' | 'medium' | 'close' | 'unknown';
+}
+
+export interface StitchingTimeline {
+  projectId: string;
+  segments: StitchingSegment[];
+  totalDuration: number;
+  transitionDuration: number;
+  createdAt: Date;
+}
+
+export interface CameraAngleClassification {
+  videoId: string;
+  angle: 'wide' | 'medium' | 'close' | 'unknown';
+  confidence: number;
+  frameAnalysis: Array<{
+    timestamp: number;
+    angle: 'wide' | 'medium' | 'close' | 'unknown';
+    confidence: number;
+  }>;
+}
+
+export interface StitchingResult {
+  projectId: string;
+  outputPath: string;
+  timeline: StitchingTimeline;
+  duration: number;
+  fileSize: number;
+  qualityMetrics: {
+    averageQuality: number;
+    transitionCount: number;
+    cameraAngleSwitches: number;
+  };
+  createdAt: Date;
+}

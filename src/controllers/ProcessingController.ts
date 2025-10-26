@@ -373,4 +373,162 @@ export class ProcessingController {
       });
     }
   };
+
+  /**
+   * Start intelligent video stitching for a project
+   */
+  startStitching = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        res.status(400).json({ error: 'Project ID is required' });
+        return;
+      }
+
+      // Check if there are videos to stitch
+      const videos = this.videoRepository.findByProjectId(projectId);
+      if (videos.length === 0) {
+        res.status(400).json({ error: 'No videos found for stitching' });
+        return;
+      }
+
+      // Check if there's already a stitching job running
+      const existingJobs = this.jobRepository.findByProjectIdAndType(projectId, 'stitching');
+      const runningJob = existingJobs.find(job => 
+        job.status === 'pending' || job.status === 'processing'
+      );
+
+      if (runningJob) {
+        res.status(409).json({ 
+          error: 'Stitching job already running for this project',
+          job: runningJob
+        });
+        return;
+      }
+
+      // Start stitching job
+      const job = await this.processingService.startVideoStitching(projectId);
+
+      res.status(201).json({
+        message: 'Intelligent video stitching started',
+        job,
+        info: {
+          videoCount: videos.length,
+          estimatedDuration: 'Processing time depends on video length and complexity'
+        }
+      });
+
+    } catch (error) {
+      console.error('Error starting stitching:', error);
+      res.status(500).json({ 
+        error: 'Failed to start video stitching',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Get quality rankings for a project
+   */
+  getQualityRankings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        res.status(400).json({ error: 'Project ID is required' });
+        return;
+      }
+
+      const rankings = await this.processingService.getProjectQualityRankings(projectId);
+
+      if (rankings.length === 0) {
+        res.status(404).json({ 
+          error: 'No quality data found. Run quality analysis first.',
+          projectId
+        });
+        return;
+      }
+
+      res.json({
+        projectId,
+        rankings,
+        summary: {
+          totalVideos: rankings.length,
+          averageQuality: Math.round(
+            rankings.reduce((sum, r) => sum + r.qualityScore, 0) / rankings.length
+          ),
+          topVideo: rankings[0]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting quality rankings:', error);
+      res.status(500).json({ 
+        error: 'Failed to get quality rankings',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Check if project is ready for stitching
+   */
+  checkStitchingReadiness = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        res.status(400).json({ error: 'Project ID is required' });
+        return;
+      }
+
+      const videos = this.videoRepository.findByProjectId(projectId);
+      
+      if (videos.length === 0) {
+        res.json({
+          ready: false,
+          reason: 'No videos found',
+          requirements: {
+            hasVideos: false,
+            hasSyncData: false,
+            hasQualityData: false
+          }
+        });
+        return;
+      }
+
+      const hasSyncData = videos.length === 1 || videos.some(video => 
+        video.syncOffset !== null && video.syncOffset !== undefined
+      );
+
+      const hasQualityData = videos.some(video => 
+        video.qualityScore !== null && video.qualityScore !== undefined
+      );
+
+      const ready = hasSyncData && hasQualityData;
+
+      res.json({
+        ready,
+        reason: ready ? 'Project ready for stitching' : 'Missing required data',
+        requirements: {
+          hasVideos: videos.length > 0,
+          hasSyncData,
+          hasQualityData
+        },
+        videoCount: videos.length,
+        recommendations: ready ? [] : [
+          !hasSyncData ? 'Run synchronization analysis' : null,
+          !hasQualityData ? 'Run quality analysis' : null
+        ].filter(Boolean)
+      });
+
+    } catch (error) {
+      console.error('Error checking stitching readiness:', error);
+      res.status(500).json({ 
+        error: 'Failed to check stitching readiness',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
 }
