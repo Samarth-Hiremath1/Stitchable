@@ -133,4 +133,11 @@ export class ProjectRepository {
     
     return rows.map(row => this.projectRowToProject(row));
   }
+
+  findOlderThan(date: Date): Project[] {
+    const stmt = this.db.prepare('SELECT * FROM projects WHERE created_at < ? ORDER BY created_at DESC');
+    const rows = stmt.all(date.toISOString()) as ProjectRow[];
+    
+    return rows.map(row => this.projectRowToProject(row));
+  }
 }

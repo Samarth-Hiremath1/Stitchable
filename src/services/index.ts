@@ -5,3 +5,7 @@ export { VideoQualityService } from './VideoQualityService';
 export { VideoStitchingService } from './VideoStitchingService';
 export { SocketService } from './SocketService';
 export { JobQueue, jobQueue } from './JobQueue';
+export { WorkflowOrchestrator } from './WorkflowOrchestrator';
+export { CleanupService } from './CleanupService';
+export { HealthMonitorService } from './HealthMonitorService';
+export { ErrorHandlingService } from './ErrorHandlingService';

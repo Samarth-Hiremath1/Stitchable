@@ -8,8 +8,10 @@ export interface Project {
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
-  status: 'active' | 'processing' | 'completed';
+  status: 'active' | 'processing' | 'completed' | 'error' | 'cancelled';
   finalVideo?: FinalVideo;
+  finalVideoPath?: string;
+  videos?: Video[];
 }
 
 export interface Video {
@@ -18,13 +20,14 @@ export interface Video {
   filename: string;
   originalName: string;
   uploaderName: string;
-  fileSize: number;
-  duration: number;
+  fileSize?: number;
+  duration?: number;
   format: string;
   uploadedAt: Date;
   filePath: string;
   qualityScore?: number;
   syncOffset?: number;
+  syncConfidence?: number;
 }
 
 export interface VideoMetadata {
@@ -43,8 +46,8 @@ export interface ProcessingJob {
   id: string;
   projectId: string;
   type: 'sync' | 'quality_analysis' | 'stitching';
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress?: number;
   startedAt?: Date;
   completedAt?: Date;
   error?: string;
@@ -68,6 +71,7 @@ export interface SyncPoint {
   confidence: number;
   method: 'audio' | 'visual';
   referencePoint: number;
+  offset: number;
 }
 
 export interface AudioWaveform {

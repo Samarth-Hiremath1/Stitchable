@@ -9,8 +9,12 @@ import projectRoutes from './routes/projectRoutes';
 import videoRoutes from './routes/videoRoutes';
 import { createProcessingRoutes } from './routes/processingRoutes';
 import qualityRoutes from './routes/qualityRoutes';
+import { createWorkflowRoutes } from './routes/workflowRoutes';
 import { SocketService } from './services/SocketService';
 import { VideoProcessingService } from './services/VideoProcessingService';
+import { CleanupService } from './services/CleanupService';
+import { HealthMonitorService } from './services/HealthMonitorService';
+import { ErrorHandlingService } from './services/ErrorHandlingService';
 import { SecurityMiddleware } from './middleware/security';
 import { ErrorHandler } from './middleware/errorHandler';
 
@@ -43,12 +47,16 @@ app.use('/uploads', SecurityMiddleware.secureFileHeaders, express.static(path.jo
 // Initialize services
 const socketService = new SocketService(io);
 const videoProcessingService = new VideoProcessingService();
+const cleanupService = new CleanupService();
+const healthService = new HealthMonitorService();
+const errorService = new ErrorHandlingService(socketService);
 
 // API Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api', videoRoutes);
 app.use('/api', createProcessingRoutes(socketService));
 app.use('/api', qualityRoutes);
+app.use('/api', createWorkflowRoutes(socketService));
 
 // Basic health check route
 app.get('/api/health', (req, res) => {
@@ -59,6 +67,7 @@ app.get('/api/health', (req, res) => {
 app.use(ErrorHandler.notFound);
 
 // Global error handling middleware (must be last)
+app.use(errorService.createExpressMiddleware());
 app.use(ErrorHandler.handle);
 
 // Socket.io connection handling
@@ -77,8 +86,39 @@ try {
   process.exit(1);
 }
 
+// Start background services
+const healthMonitorInterval = healthService.startMonitoring(5); // Check every 5 minutes
+const cleanupInterval = cleanupService.scheduleCleanup(24, { // Run daily cleanup
+  tempFileMaxAge: 24, // 24 hours
+  projectMaxAge: 30   // 30 days
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  clearInterval(healthMonitorInterval);
+  clearInterval(cleanupInterval);
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  clearInterval(healthMonitorInterval);
+  clearInterval(cleanupInterval);
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('Background services started:');
+  console.log('- Health monitoring (5 min intervals)');
+  console.log('- Automatic cleanup (24 hour intervals)');
 });
 
 export { app, io };

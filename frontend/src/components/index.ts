@@ -12,3 +12,4 @@ export { ProcessingStatusDisplay } from './ProcessingStatusDisplay';
 export { NotificationSystem } from './NotificationSystem';
 export { ProcessingProgressVisualization } from './ProcessingProgressVisualization';
 export { ProcessingControls } from './ProcessingControls';
+export { WorkflowDashboard } from './WorkflowDashboard';

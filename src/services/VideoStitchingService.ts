@@ -130,7 +130,7 @@ export class VideoStitchingService {
 
     // Calculate the overall timeline duration
     const maxEndTime = Math.max(...videos.map(video => 
-      (video.syncOffset || 0) + video.duration
+      (video.syncOffset || 0) + (video.duration || 0)
     ));
 
     // Create time segments for analysis
@@ -143,7 +143,7 @@ export class VideoStitchingService {
       // Find videos that are active during this time segment
       const activeVideos = videos.filter(video => {
         const videoStart = video.syncOffset || 0;
-        const videoEnd = videoStart + video.duration;
+        const videoEnd = videoStart + (video.duration || 0);
         return videoStart < segmentEnd && videoEnd > time;
       });
 
@@ -334,7 +334,7 @@ export class VideoStitchingService {
       // Find all videos available for this time segment
       const availableVideos = videos.filter(video => {
         const videoStart = video.syncOffset || 0;
-        const videoEnd = videoStart + video.duration;
+        const videoEnd = videoStart + (video.duration || 0);
         return videoStart <= segment.startTime && videoEnd >= segment.endTime;
       });
 
@@ -647,12 +647,12 @@ export class VideoStitchingService {
       segments: [{
         videoId: video.id,
         startTime: 0,
-        endTime: video.duration,
+        endTime: video.duration || 0,
         qualityScore: video.qualityScore || 0,
         transitionType: 'cut',
         cameraAngle: 'unknown'
       }],
-      totalDuration: video.duration,
+      totalDuration: video.duration || 0,
       transitionDuration: 0,
       createdAt: new Date()
     };
@@ -663,7 +663,7 @@ export class VideoStitchingService {
       projectId,
       outputPath: path.relative(process.cwd(), outputPath),
       timeline,
-      duration: video.duration,
+      duration: video.duration || 0,
       fileSize: fileStats.size,
       qualityMetrics: {
         averageQuality: video.qualityScore || 0,

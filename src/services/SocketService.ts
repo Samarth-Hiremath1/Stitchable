@@ -217,4 +217,18 @@ export class SocketService {
   getTotalClientCount(): number {
     return this.io.sockets.sockets.size;
   }
+
+  /**
+   * Emit to specific project room
+   */
+  emitToProject(projectId: string, event: string, data: any): void {
+    this.io.to(`project:${projectId}`).emit(event, data);
+  }
+
+  /**
+   * Emit to all connected clients
+   */
+  emitToAll(event: string, data: any): void {
+    this.io.emit(event, data);
+  }
 }

@@ -7,6 +7,7 @@ import { VideoPreview } from './VideoPreview';
 import { ProcessingStatusDisplay } from './ProcessingStatusDisplay';
 import { ProcessingProgressVisualization } from './ProcessingProgressVisualization';
 import { ProcessingControls } from './ProcessingControls';
+import { WorkflowDashboard } from './WorkflowDashboard';
 import { useProcessingUpdates } from '../hooks/useProcessingUpdates';
 
 interface ProjectDashboardProps {
@@ -16,7 +17,7 @@ interface ProjectDashboardProps {
   isLoading?: boolean;
 }
 
-type TabType = 'overview' | 'videos' | 'preview' | 'processing' | 'settings';
+type TabType = 'overview' | 'videos' | 'preview' | 'processing' | 'workflow' | 'settings';
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   project,
@@ -55,6 +56,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     { id: 'videos', label: 'Videos', count: project.videos?.length || 0 },
     { id: 'preview', label: 'Preview', count: null },
     { id: 'processing', label: 'Processing', count: processingState.activeJobs.length },
+    { id: 'workflow', label: 'Workflow', count: null },
     { id: 'settings', label: 'Settings', count: null }
   ];
 
@@ -233,6 +235,19 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'workflow' && (
+          <WorkflowDashboard
+            projectId={project.id}
+            onWorkflowComplete={(finalVideoPath) => {
+              // Update project with final video path and refresh
+              onUpdateProject(project.id, { finalVideoPath }).then(() => {
+                onRefresh();
+                setActiveTab('preview'); // Switch to preview tab
+              });
+            }}
+          />
         )}
 
         {activeTab === 'settings' && (

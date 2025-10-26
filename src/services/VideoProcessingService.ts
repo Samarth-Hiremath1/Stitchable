@@ -210,6 +210,13 @@ export class VideoProcessingService {
   }
 
   /**
+   * Process video (alias for processVideoForStandardization)
+   */
+  async processVideo(videoId: string): Promise<ProcessingJob> {
+    return this.processVideoForStandardization(videoId);
+  }
+
+  /**
    * Process video for standardization
    */
   async processVideoForStandardization(videoId: string): Promise<ProcessingJob> {

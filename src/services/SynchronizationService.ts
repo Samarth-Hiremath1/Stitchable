@@ -125,7 +125,8 @@ export class SynchronizationService {
           timestamp: 0, // Reference point in second video
           confidence: Math.min(current.correlation * 100, 100),
           method: 'audio',
-          referencePoint: current.offset // Offset in first video
+          referencePoint: current.offset, // Offset in first video
+          offset: current.offset
         });
       }
     }
@@ -249,7 +250,8 @@ export class SynchronizationService {
             timestamp: feature2.timestamp,
             confidence: similarity * 100,
             method: 'visual',
-            referencePoint: feature1.timestamp
+            referencePoint: feature1.timestamp,
+            offset: feature2.timestamp - feature1.timestamp
           });
         }
       }
